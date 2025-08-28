@@ -134,27 +134,40 @@ override_whitelisted_methods = {
 ## lead.js
 ```js
 frappe.ui.form.on('Lead', {
-    refresh(frm) {
-      // Remove default "Create" actions you don't want
-      frappe.after_ajax(() => {
-        // Remove only specific items under "Create"
-        frm.remove_custom_button(__('Customer'), __('Create'));
-        frm.remove_custom_button(__('Quotation'), __('Create'));
-        frm.remove_custom_button(__('Project'), __('Create')); // if present
-        // ...add more lines if other create actions exist
+  refresh(frm) {
+    frm.page.remove_inner_button(__('Opportunity'), __('Create'));
+
+    frm.add_custom_button(__('Opportunity'), () => {
+      const go = () => frappe.model.open_mapped_doc({
+        method: "erpnext.crm.doctype.lead.lead.make_opportunity",
+        frm
       });
-  
-      // Your single, clear CTA
-      frm.add_custom_button(__('Create Opportunity'), () => {
-        // Ensure doc saved first
-        const go = () => {
-          frappe.model.open_mapped_doc({
-            method: "erpnext.crm.doctype.lead.lead.make_opportunity",
-            frm: frm
-          });
-        };
-        frm.is_dirty() ? frm.save().then(go) : go();
-      }, __('Create')); // put under Create group for good UX
-    }
-  });
+      frm.is_dirty() ? frm.save().then(go) : go();
+    }, __('Create'));
+
+    const prune = () => {
+      frm.remove_custom_button(__('Customer'), __('Create'));
+      frm.remove_custom_button(__('Prospect'), __('Create'));
+      frm.remove_custom_button(__('Quotation'), __('Create'));
+
+      if (frm.page && frm.page.remove_inner_button) {
+        frm.page.remove_inner_button(__('Customer'), __('Create'));
+        frm.page.remove_inner_button(__('Prospect'), __('Create'));
+        frm.page.remove_inner_button(__('Quotation'), __('Create'));
+      }
+    };
+
+    prune();                 
+    setTimeout(prune, 120); 
+    setTimeout(prune, 400);
+
+    setTimeout(() => {
+      frm.remove_custom_button(__('Add to Prospect'), __('Action'));
+      if (frm.page && frm.page.remove_inner_button) {
+        frm.page.remove_inner_button(__('Add to Prospect'), __('Action'));
+      }
+    }, 150);
+  }
+});
+
 ```
