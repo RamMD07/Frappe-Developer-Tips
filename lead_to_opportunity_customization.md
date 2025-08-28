@@ -25,7 +25,7 @@
   }, __('Create'));
   ```
 
-### Link Hidden script
+### Link Hidden script (Connections)
 ```js
 setTimeout(() => {
       $('[data-doctype="Prospect"]').closest('.document-link').hide();
