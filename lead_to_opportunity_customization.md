@@ -104,3 +104,51 @@ override_whitelisted_methods = {
 - Avoid Customer creation and Lead status changes when only creating Opportunity
 
 This ensures an **optimistic, efficient, and upgrade-safe** CRM customization.
+
+## api.py
+@frappe.whitelist()
+def make_opportunity_patched(source_name, target_doc=None):
+    # Call core to build the mapped doc
+    opp = core_make(source_name, target_doc)
+
+    # Post-process for differently-named fields
+    lead = frappe.get_doc("Lead", source_name)
+
+    # EXAMPLES (rename to your actual fields)
+    # If same names exist, these are not needed — only use for different names.
+    opp.custom_opportunity_priority = lead.custom_lead_priority
+    opp.custom_segment = lead.custom_source_segment
+    # Child tables? map here as well
+
+    return opp
+
+## hooks.py
+override_whitelisted_methods = {
+  "erpnext.crm.doctype.lead.lead.make_opportunity": "finerp.api.make_opportunity_patched"
+}
+
+## lead.js
+frappe.ui.form.on('Lead', {
+    refresh(frm) {
+      // Remove default "Create" actions you don't want
+      frappe.after_ajax(() => {
+        // Remove only specific items under "Create"
+        frm.remove_custom_button(__('Customer'), __('Create'));
+        frm.remove_custom_button(__('Quotation'), __('Create'));
+        frm.remove_custom_button(__('Project'), __('Create')); // if present
+        // ...add more lines if other create actions exist
+      });
+  
+      // Your single, clear CTA
+      frm.add_custom_button(__('Create Opportunity'), () => {
+        // Ensure doc saved first
+        const go = () => {
+          frappe.model.open_mapped_doc({
+            method: "erpnext.crm.doctype.lead.lead.make_opportunity",
+            frm: frm
+          });
+        };
+        frm.is_dirty() ? frm.save().then(go) : go();
+      }, __('Create')); // put under Create group for good UX
+    }
+  });
