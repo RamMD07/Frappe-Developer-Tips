@@ -107,6 +107,7 @@ This ensures an **optimistic, efficient, and upgrade-safe** CRM customization.
 
 ## api.py
 ```pyhton
+from erpnext.crm.doctype.lead.lead import make_opportunity as core_make
 @frappe.whitelist()
 def make_opportunity_patched(source_name, target_doc=None):
     # Call core to build the mapped doc
