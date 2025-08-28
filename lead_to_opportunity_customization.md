@@ -106,6 +106,7 @@ override_whitelisted_methods = {
 This ensures an **optimistic, efficient, and upgrade-safe** CRM customization.
 
 ## api.py
+```pyhton
 @frappe.whitelist()
 def make_opportunity_patched(source_name, target_doc=None):
     # Call core to build the mapped doc
@@ -121,13 +122,17 @@ def make_opportunity_patched(source_name, target_doc=None):
     # Child tables? map here as well
 
     return opp
+```
 
 ## hooks.py
+```python
 override_whitelisted_methods = {
   "erpnext.crm.doctype.lead.lead.make_opportunity": "finerp.api.make_opportunity_patched"
 }
+```
 
 ## lead.js
+```js
 frappe.ui.form.on('Lead', {
     refresh(frm) {
       // Remove default "Create" actions you don't want
@@ -152,3 +157,4 @@ frappe.ui.form.on('Lead', {
       }, __('Create')); // put under Create group for good UX
     }
   });
+```
