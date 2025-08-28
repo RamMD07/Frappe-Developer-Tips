@@ -171,3 +171,74 @@ frappe.ui.form.on('Lead', {
 });
 
 ```
+
+## lead.js (for quick dom manipulation)
+```js
+// Client Script: Lead
+frappe.ui.form.on('Lead', {
+  refresh(frm) {
+    // --- helper to keep only what we want under "Create"
+    const prune = () => {
+      // remove unwanted entries under Create
+      frm.remove_custom_button(__('Customer'), __('Create'));
+      frm.remove_custom_button(__('Prospect'), __('Create'));
+      frm.remove_custom_button(__('Quotation'), __('Create'));
+      // remove from inner API too (some builds add via page)
+      if (frm.page && frm.page.remove_inner_button) {
+        frm.page.remove_inner_button(__('Customer'), __('Create'));
+        frm.page.remove_inner_button(__('Prospect'), __('Create'));
+        frm.page.remove_inner_button(__('Quotation'), __('Create'));
+      }
+      // also remove "Add to Prospect" from Action, if present
+      frm.remove_custom_button(__('Add to Prospect'), __('Action'));
+      if (frm.page && frm.page.remove_inner_button) {
+        frm.page.remove_inner_button(__('Add to Prospect'), __('Action'));
+      }
+    };
+
+    // 1) run once ASAP (in case buttons already exist)
+    prune();
+
+    // 2) run right after current AJAX/UI injections finish (official/recommended)
+    frappe.after_ajax(() => {
+      prune();
+
+      // (optional) ensure only one Opportunity entry:
+      // remove core Opportunity under Create, then add your controlled one
+      if (frm.page && frm.page.remove_inner_button) {
+        frm.page.remove_inner_button(__('Opportunity'), __('Create'));
+      }
+      frm.remove_custom_button(__('Opportunity'), __('Create'));
+
+      frm.add_custom_button(__('Opportunity'), () => {
+        const go = () => frappe.model.open_mapped_doc({
+          method: 'erpnext.crm.doctype.lead.lead.make_opportunity',
+          frm
+        });
+        frm.is_dirty() ? frm.save().then(go) : go();
+      }, __('Create'));
+    });
+
+    // 3) small delays to catch stragglers
+    setTimeout(prune, 50);
+    setTimeout(prune, 120);
+
+    // 4) watch for late re-insertions and re-prune
+    if (!frm._createObserver) {
+      const node = frm.page?.inner_toolbar?.get?.(0);
+      if (node) {
+        frm._createObserver = new MutationObserver(prune);
+        frm._createObserver.observe(node, { childList: true, subtree: true });
+      }
+    }
+  },
+
+  onhide(frm) {
+    // hygiene: disconnect observer when leaving form
+    if (frm._createObserver) {
+      frm._createObserver.disconnect();
+      frm._createObserver = null;
+    }
+  }
+});
+```
