@@ -25,6 +25,13 @@
   }, __('Create'));
   ```
 
+### Link Hidden script
+```js
+setTimeout(() => {
+      $('[data-doctype="Prospect"]').closest('.document-link').hide();
+    }, 500);
+```
+
 ### Custom Field Mapping
 - **Option 1 (No Code):** Use the same fieldname for custom fields in both Lead and Opportunity → auto-mapped.
 - **Option 2 (Code):** Override or wrap the core method to add extra mappings.
@@ -175,37 +182,33 @@ frappe.ui.form.on('Lead', {
 
 ## lead.js (for quick dom manipulation)
 ```js
-// Client Script: Lead
 frappe.ui.form.on('Lead', {
   refresh(frm) {
-    // --- helper to keep only what we want under "Create"
+
+    setTimeout(() => {
+      $('[data-doctype="Prospect"]').closest('.document-link').hide();
+    }, 500);
+
     const prune = () => {
-      // remove unwanted entries under Create
       frm.remove_custom_button(__('Customer'), __('Create'));
       frm.remove_custom_button(__('Prospect'), __('Create'));
       frm.remove_custom_button(__('Quotation'), __('Create'));
-      // remove from inner API too (some builds add via page)
       if (frm.page && frm.page.remove_inner_button) {
         frm.page.remove_inner_button(__('Customer'), __('Create'));
         frm.page.remove_inner_button(__('Prospect'), __('Create'));
         frm.page.remove_inner_button(__('Quotation'), __('Create'));
       }
-      // also remove "Add to Prospect" from Action, if present
       frm.remove_custom_button(__('Add to Prospect'), __('Action'));
       if (frm.page && frm.page.remove_inner_button) {
         frm.page.remove_inner_button(__('Add to Prospect'), __('Action'));
       }
     };
 
-    // 1) run once ASAP (in case buttons already exist)
     prune();
 
-    // 2) run right after current AJAX/UI injections finish (official/recommended)
     frappe.after_ajax(() => {
       prune();
 
-      // (optional) ensure only one Opportunity entry:
-      // remove core Opportunity under Create, then add your controlled one
       if (frm.page && frm.page.remove_inner_button) {
         frm.page.remove_inner_button(__('Opportunity'), __('Create'));
       }
@@ -220,11 +223,9 @@ frappe.ui.form.on('Lead', {
       }, __('Create'));
     });
 
-    // 3) small delays to catch stragglers
     setTimeout(prune, 50);
     setTimeout(prune, 120);
 
-    // 4) watch for late re-insertions and re-prune
     if (!frm._createObserver) {
       const node = frm.page?.inner_toolbar?.get?.(0);
       if (node) {
@@ -235,11 +236,11 @@ frappe.ui.form.on('Lead', {
   },
 
   onhide(frm) {
-    // hygiene: disconnect observer when leaving form
     if (frm._createObserver) {
       frm._createObserver.disconnect();
       frm._createObserver = null;
     }
   }
 });
+
 ```
