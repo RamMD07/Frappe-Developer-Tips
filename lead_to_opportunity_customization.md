@@ -244,3 +244,21 @@ frappe.ui.form.on('Lead', {
 });
 
 ```
+
+## fetch multiselect field from opportunity, while creating project from quotation
+```py
+if opp.get("custom_bd_team_members"):
+        bd_table = frappe.get_meta("Opportunity").get_field("custom_bd_team_members").options
+        if bd_table:
+            bd_members = frappe.db.sql("""
+                SELECT DISTINCT user 
+                FROM `tab{0}` 
+                WHERE parent = %s AND parenttype = 'Opportunity'
+            """.format(bd_table), opp.name, as_dict=1)
+            
+            existing_users = set()
+            for member in bd_members:
+                if member.user and member.user not in existing_users:
+                    project.append("custom_bd_team_members", {"user": member.user})
+                    existing_users.add(member.user)
+```
