@@ -247,6 +247,92 @@ frappe.ui.form.on('Lead', {
 
 ## fetch multiselect field from opportunity, while creating project from quotation
 ```py
+@frappe.whitelist()
+def create_project_from_quotation(quotation_name: str) -> str:
+    if not quotation_name:
+        frappe.throw(_("Missing Quotation name"))
+
+    quo = frappe.get_doc("Quotation", quotation_name)
+    
+    if quo.get("custom_project") and frappe.db.exists("Project", quo.custom_project):
+        return quo.custom_project
+        
+    if not quo.opportunity or not frappe.db.exists("Opportunity", quo.opportunity):
+        frappe.throw(_("Quotation must be linked to a valid Opportunity"))
+        
+    opp = frappe.get_doc("Opportunity", quo.opportunity)
+
+    project = frappe.new_doc("Project")
+    project.project_name = (
+        quo.get("customer_name") or 
+        quo.get("party_name") or 
+        opp.get("customer_name") or 
+        opp.get("company_name") or 
+        f"Project for {quo.name}"
+    )
+    
+    resolved_customer = _resolve_customer_from_quotation(quo)
+    if resolved_customer:
+        project.customer = resolved_customer
+    if hasattr(project, "company") and quo.get("company"):
+        project.company = quo.get("company")
+
+    project.update({
+        "expected_start_date": quo.get("transaction_date") or nowdate(),
+        "notes": quo.get("notes"),
+        "custom_quotation_reference": quo.name,
+        "opportunity": quo.opportunity,
+        "department": opp.get("department") or opp.get("custom_department"),
+        "custom_service_line": opp.get("service_line") or opp.get("custom_service_line"),
+        "custom_engagement_partner": opp.get("engagement_partner") or opp.get("custom_engagement_partner"),
+        "custom_referral_partner": opp.get("referral_partner") or opp.get("custom_referral_partner"),
+        "engagement_manager": opp.get("engagement_manager"),
+    })
+
+    if opp.get("custom_bd_team_members"):
+        bd_table = frappe.get_meta("Opportunity").get_field("custom_bd_team_members").options
+        if bd_table:
+            bd_members = frappe.db.sql("""
+                SELECT DISTINCT user 
+                FROM `tab{0}` 
+                WHERE parent = %s AND parenttype = 'Opportunity'
+            """.format(bd_table), opp.name, as_dict=1)
+            
+            existing_users = set()
+            for member in bd_members:
+                if member.user and member.user not in existing_users:
+                    project.append("custom_bd_team_members", {"user": member.user})
+                    existing_users.add(member.user)
+
+    if hasattr(quo, 'payment_schedule') and quo.payment_schedule:
+        for schedule in quo.payment_schedule:
+            project.append('custom_payment_schedule', {
+                'payment_term': schedule.payment_term,
+                'description': schedule.description,
+                'due_date': schedule.due_date,
+                'invoice_portion': schedule.invoice_portion,
+                'payment_amount': schedule.payment_amount,
+                'discount': schedule.discount,
+                'outstanding': schedule.outstanding,
+                'paid_amount': schedule.paid_amount,
+                'discounted_amount': schedule.discounted_amount,
+                'base_payment_amount': schedule.base_payment_amount
+            })
+
+    project.insert(ignore_permissions=True)
+
+    quo.db_set("custom_project", project.name)
+    quo.add_comment('Info', f'Project {project.name} created from this quotation')
+    
+    if opp.status != 'Converted':
+        frappe.db.set_value('Opportunity', quo.opportunity, 'status', 'Converted')
+
+    frappe.msgprint(_("Project {0} created successfully").format(project.name))
+    return project.name
+```
+
+
+```py
 if opp.get("custom_bd_team_members"):
         bd_table = frappe.get_meta("Opportunity").get_field("custom_bd_team_members").options
         if bd_table:
