@@ -73,5 +73,3 @@ sudo supervisorctl restart all
 
 By completing these steps, you will have successfully hardened your Frappe instance, resolved the VAPT findings, and adopted a secure posture for your production environment.
 
-```
-```
